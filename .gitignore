@@ -20,3 +20,4 @@ dist/
 
 # Generated documentation
 doc/
+*.swp

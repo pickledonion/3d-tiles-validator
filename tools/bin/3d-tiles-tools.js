@@ -92,6 +92,7 @@ var argv = yargs
             description: 'All arguments after this flag will be passed to gltf-pipeline as command line options.'
         }
     })
+    .command('dracoCompressB3dm', 'Pass the input b3dm through gltf-pipeline to draco compress it')
     .command('optimizeI3dm', 'Pass the input i3dm through gltf-pipeline. To pass options to gltf-pipeline, place them after --options. (--options -h for gltf-pipeline help)', {
         'options': {
             description: 'All arguments after this flag will be passed to gltf-pipeline as command line options.'
@@ -163,6 +164,8 @@ function runCommand(command, input, output, force, argv) {
         return readGlbWriteI3dm(input, output, force);
     } else if (command === 'optimizeB3dm') {
         return readAndOptimizeB3dm(input, output, force, optionArgs);
+    } else if (command === 'dracoCompressB3dm') {
+        return dracoCompressB3dm(input, output, force, optionArgs);
     } else if (command === 'optimizeI3dm') {
         return readAndOptimizeI3dm(input, output, force, optionArgs);
     } else if (command === 'tilesetToDatabase') {
@@ -409,7 +412,7 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
         })
         .then(function(fileBuffer) {
             b3dm = extractB3dm(fileBuffer);
-            return optimizeGlb(b3dm.glb, options);
+            return GltfPipeline.processGlb(b3dm.glb, options);
         })
         .then(function(glbBuffer) {
             var b3dmBuffer = glbToB3dm(glbBuffer, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
@@ -420,6 +423,41 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
         })
         .then(function(buffer) {
             return fsExtra.outputFile(outputPath, buffer);
+        });
+}
+
+function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
+    var options = {dracoOptions: true}; 
+    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
+    var gzipped;
+    var b3dm;
+    return checkFileOverwritable(outputPath, force)
+        .then(function() {
+            return fsExtra.readFile(inputPath);
+        })
+        .then(function(fileBuffer) {
+            gzipped = isGzipped(fileBuffer);
+            if (isGzipped(fileBuffer)) {
+                return zlibGunzip(fileBuffer);
+            }
+            return fileBuffer;
+        })
+        .then(function(fileBuffer) {
+            b3dm = extractB3dm(fileBuffer);
+            return GltfPipeline.processGlb(b3dm.glb, options);
+        })
+        .then(function({glb}) {
+            var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
+            if (gzipped) {
+                return zlibGzip(b3dmBuffer);
+            }
+            return b3dmBuffer;
+        })
+        .then(function(buffer) {
+            return fsExtra.outputFile(outputPath, buffer);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
         });
 }
 
