@@ -24,6 +24,7 @@
   "dependencies": {
     "bluebird": "^3.5.3",
     "cesium": "^1.55",
+    "cwebp": "^2.0.5",
     "fs-extra": "^7.0.1",
     "gltf-pipeline": "Avnerus/gltf-pipeline",
     "klaw": "^3.0.0",

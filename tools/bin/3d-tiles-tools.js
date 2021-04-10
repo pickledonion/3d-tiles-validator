@@ -427,7 +427,7 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
 }
 
 function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
-    var options = {dracoOptions: true, decodeWebP: true, jpegCompressionRatio: 50}; 
+    var options = {dracoOptions: true, decodeWebP: true, encodeBasis: true}; 
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
     var gzipped;
     var b3dm;
