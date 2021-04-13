@@ -24,13 +24,14 @@ def process_file(data):
     else:
         print(output_file)
 
-work = []
-for file in sorted(os.listdir(args.input_folder)):
-    if file.endswith(".b3dm"):
-        full_path = os.path.join(args.input_folder, file)
-        output_path = os.path.join(args.output_folder, file)
-        work.append((full_path, output_path))
+if __name__ == '__main__':
+    work = []
+    for file in sorted(os.listdir(args.input_folder)):
+        if file.endswith(".b3dm"):
+            full_path = os.path.join(args.input_folder, file)
+            output_path = os.path.join(args.output_folder, file)
+            work.append((full_path, output_path))
 
-print("Running pool with {} workers".format(args.concurrency))
-pool = Pool(args.concurrency)
-pool.map(process_file, work)
+    print("Running pool with {} workers".format(args.concurrency))
+    pool = Pool(args.concurrency)
+    pool.map(process_file, work)
