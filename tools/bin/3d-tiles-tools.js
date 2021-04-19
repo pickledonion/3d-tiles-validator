@@ -23,6 +23,8 @@ var optimizeGlb = require('../lib/optimizeGlb');
 var runPipeline = require('../lib/runPipeline');
 var tilesetToDatabase = require('../lib/tilesetToDatabase');
 
+var fs = require('fs');
+
 var zlibGunzip = Promise.promisify(zlib.gunzip);
 var zlibGzip = Promise.promisify(zlib.gzip);
 
@@ -93,6 +95,7 @@ var argv = yargs
         }
     })
     .command('dracoCompressB3dm', 'Pass the input b3dm through gltf-pipeline to draco compress it')
+    .command('dracoCompressGlb', 'Pass the input glb through gltf-pipeline to draco compress it')
     .command('optimizeI3dm', 'Pass the input i3dm through gltf-pipeline. To pass options to gltf-pipeline, place them after --options. (--options -h for gltf-pipeline help)', {
         'options': {
             description: 'All arguments after this flag will be passed to gltf-pipeline as command line options.'
@@ -166,6 +169,8 @@ function runCommand(command, input, output, force, argv) {
         return readAndOptimizeB3dm(input, output, force, optionArgs);
     } else if (command === 'dracoCompressB3dm') {
         return dracoCompressB3dm(input, output, force, optionArgs);
+    } else if (command === 'dracoCompressGlb') {
+        return dracoCompressGlb(input, output, force, optionArgs);
     } else if (command === 'optimizeI3dm') {
         return readAndOptimizeI3dm(input, output, force, optionArgs);
     } else if (command === 'tilesetToDatabase') {
@@ -412,6 +417,7 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
         })
         .then(function(fileBuffer) {
             b3dm = extractB3dm(fileBuffer);
+
             return GltfPipeline.processGlb(b3dm.glb, options);
         })
         .then(function(glbBuffer) {
@@ -427,7 +433,7 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
 }
 
 function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
-    var options = {dracoOptions: true, decodeWebP: true}
+    var options = {dracoOptions: true, decodeWebP: true};
     if (optionArgs.includes('--basis')) {
       options.encodeBasis = true;
     }
@@ -468,6 +474,39 @@ function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
         });
 }
 
+function dracoCompressGlb(inputPath, outputPath, force, optionArgs) {
+    var options = {dracoOptions: true, decodeWebP: true};
+    if (optionArgs.includes('--basis')) {
+      options.encodeBasis = true;
+    }
+    var qualityArg = optionArgs.findIndex(str => str.includes('--jpeg-quality'))
+    if (qualityArg != -1) {
+      options.jpegCompressionRatio = parseInt(optionArgs[qualityArg].split('=')[1])
+    }
+    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.glb');
+    var gzipped;
+    var b3dm;
+    return checkFileOverwritable(outputPath, force)
+        .then(function() {
+            return fsExtra.readFile(inputPath);
+        })
+        .then(function(fileBuffer) {
+            gzipped = isGzipped(fileBuffer);
+            if (isGzipped(fileBuffer)) {
+                return zlibGunzip(fileBuffer);
+            }
+            return fileBuffer;
+        })
+        .then(function(fileBuffer) {
+            return GltfPipeline.processGlb(fileBuffer, options);
+        })
+        .then(function(buffer) {
+            return fsExtra.outputFile(outputPath, buffer.glb);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
+        });
+}
 function readAndOptimizeI3dm(inputPath, outputPath, force, optionArgs) {
     var options = GltfPipeline.parseArguments(optionArgs);
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.i3dm');
