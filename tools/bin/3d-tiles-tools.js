@@ -461,9 +461,11 @@ function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
         })
         .then(function({glb}) {
             var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
+            /*
+             * Viewer currently does not support Gzip
             if (gzipped) {
                 return zlibGzip(b3dmBuffer);
-            }
+            }*/
             return b3dmBuffer;
         })
         .then(function(buffer) {
