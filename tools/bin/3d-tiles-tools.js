@@ -24,6 +24,10 @@ var runPipeline = require('../lib/runPipeline');
 var tilesetToDatabase = require('../lib/tilesetToDatabase');
 
 var fs = require('fs');
+var os = require('os');
+var { exec } = require("child_process");
+
+var uuidv4  = require('uuid').v4;
 
 var zlibGunzip = Promise.promisify(zlib.gunzip);
 var zlibGzip = Promise.promisify(zlib.gzip);
@@ -79,6 +83,13 @@ var argv = yargs
             description: 'Output can be overwritten if it already exists.',
             global: true,
             type: 'boolean'
+        },
+        'b': {
+            alias: 'blender-path',
+            default: '/var/lib/flatpak/exports/bin/org.blender.Blender',
+            description: 'Path to blender executable',
+            global: true,
+            type: 'string'
         }
     })
     .command('pipeline', 'Execute the input pipeline JSON file.')
@@ -95,6 +106,7 @@ var argv = yargs
         }
     })
     .command('dracoCompressB3dm', 'Pass the input b3dm through gltf-pipeline to draco compress it')
+    .command('smoothB3dm', 'Smooth a b3dm using blender')
     .command('dracoCompressGlb', 'Pass the input glb through gltf-pipeline to draco compress it')
     .command('optimizeI3dm', 'Pass the input i3dm through gltf-pipeline. To pass options to gltf-pipeline, place them after --options. (--options -h for gltf-pipeline help)', {
         'options': {
@@ -128,6 +140,7 @@ var argv = yargs
 var command = argv._[0];
 var input = defaultValue(argv.i, argv._[1]);
 var output = defaultValue(argv.o, argv._[2]);
+var blenderPath = argv.b;
 var force = argv.f;
 
 if (!defined(input)) {
@@ -169,6 +182,8 @@ function runCommand(command, input, output, force, argv) {
         return readAndOptimizeB3dm(input, output, force, optionArgs);
     } else if (command === 'dracoCompressB3dm') {
         return dracoCompressB3dm(input, output, force, optionArgs);
+    } else if (command === 'smoothB3dm') {
+        return smoothB3dm(input, output, force, blenderPath, optionArgs);
     } else if (command === 'dracoCompressGlb') {
         return dracoCompressGlb(input, output, force, optionArgs);
     } else if (command === 'optimizeI3dm') {
@@ -337,12 +352,18 @@ function readGlbWriteI3dm(inputPath, outputPath, force) {
 
 function readB3dmWriteGlb(inputPath, outputPath, force) {
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 4) + 'glb');
+    var options = {decodeWebP: true};
+
     return checkFileOverwritable(outputPath, force)
         .then(function() {
             return readFile(inputPath);
         })
-        .then(function(b3dm) {
-            return fsExtra.outputFile(outputPath, extractB3dm(b3dm).glb);
+        .then(function(fileBuffer) {
+            var b3dm = extractB3dm(fileBuffer);
+            return GltfPipeline.processGlb(b3dm.glb, options);
+        })
+        .then(function({glb}) {
+            return fsExtra.outputFile(outputPath, glb);
         });
 }
 
@@ -469,6 +490,119 @@ function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
             return b3dmBuffer;
         })
         .then(function(buffer) {
+            return fsExtra.outputFile(outputPath, buffer);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
+        });
+}
+
+function dracoCompressB3dm(inputPath, outputPath, force, optionArgs) {
+    var options = {dracoOptions: true, decodeWebP: true};
+    if (optionArgs.includes('--basis')) {
+      options.encodeBasis = true;
+    }
+    var qualityArg = optionArgs.findIndex(str => str.includes('--jpeg-quality'))
+    if (qualityArg != -1) {
+      options.jpegCompressionRatio = parseInt(optionArgs[qualityArg].split('=')[1])
+    }
+    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
+    var gzipped;
+    var b3dm;
+    return checkFileOverwritable(outputPath, force)
+        .then(function() {
+            return fsExtra.readFile(inputPath);
+        })
+        .then(function(fileBuffer) {
+            gzipped = isGzipped(fileBuffer);
+            if (isGzipped(fileBuffer)) {
+                return zlibGunzip(fileBuffer);
+            }
+            return fileBuffer;
+        })
+        .then(function(fileBuffer) {
+            b3dm = extractB3dm(fileBuffer);
+            return GltfPipeline.processGlb(b3dm.glb, options);
+        })
+        .then(function({glb}) {
+            var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
+            /*
+             * Viewer currently does not support Gzip
+            if (gzipped) {
+                return zlibGzip(b3dmBuffer);
+            }*/
+            return b3dmBuffer;
+        })
+        .then(function(buffer) {
+            return fsExtra.outputFile(outputPath, buffer);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
+        });
+}
+function smoothB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
+    var options = {decodeWebP: true};
+    var uid = uuidv4();
+
+
+    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
+    var gzipped;
+    var b3dm;
+    return checkFileOverwritable(outputPath, force)
+        .then(function() {
+            return fsExtra.readFile(inputPath);
+        })
+        .then(function(fileBuffer) {
+            gzipped = isGzipped(fileBuffer);
+            if (isGzipped(fileBuffer)) {
+                return zlibGunzip(fileBuffer);
+            }
+            return fileBuffer;
+        })
+        .then(function(fileBuffer) {
+            b3dm = extractB3dm(fileBuffer);
+            return GltfPipeline.processGlb(b3dm.glb, options);
+        })
+        .then(function({glb}) {
+          const blenderTmp = path.resolve('.', 'tmp');
+          return new Promise((resolve, reject) => {
+            fs.writeFile(`${blenderTmp}/tile-${uid}.glb`, glb, (err) => {
+                if (err) {
+                  console.log("Error", err)
+                  reject(err)
+                } else {
+                  exec(`${blenderPath} -b --python ${path.resolve('.','bpy_smooth_tiles.py')} -- ${blenderTmp}/tile-${uid}.glb ${blenderTmp}/tile-smooth-${uid}.glb`, (error, stdout, stderr) => {
+                    if (error) {
+                      console.log("Error", error);
+                      reject(error);
+                    }
+                    console.log(stdout);
+                    fs.readFile(`${blenderTmp}/tile-smooth-${uid}.glb`, (err, data) => {
+                      if (err) {
+                        console.log("Error", err);
+                        reject(err);
+                      }
+                      fs.unlinkSync(`${blenderTmp}/tile-${uid}.glb`)
+                      fs.unlinkSync(`${blenderTmp}/tile-smooth-${uid}.glb`)
+                      resolve(data)
+                    });
+                  })
+                  
+                }
+              })
+            })
+        })
+        .then(function(glb) {
+            var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
+            /*
+             * Viewer currently does not support Gzip
+            if (gzipped) {
+                return zlibGzip(b3dmBuffer);
+            }*/
+            return b3dmBuffer;
+        })
+        .then(function(buffer) {
+            console.log("WRITING", buffer, outputPath)
             return fsExtra.outputFile(outputPath, buffer);
         })
         .catch(function(error) {
