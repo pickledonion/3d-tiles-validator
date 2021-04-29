@@ -26,7 +26,7 @@ var tilesetToDatabase = require('../lib/tilesetToDatabase');
 var fs = require('fs');
 var os = require('os');
 var { exec } = require("child_process");
-
+var rimraf = require("rimraf");
 var uuidv4  = require('uuid').v4;
 
 var zlibGunzip = Promise.promisify(zlib.gunzip);
@@ -86,10 +86,18 @@ var argv = yargs
         },
         'b': {
             alias: 'blender-path',
-            default: '/var/lib/flatpak/exports/bin/org.blender.Blender',
+            default: 'C:\\Program Files\\Blender Foundation\\Blender 2.92\\blender.exe',
             description: 'Path to blender executable',
             global: true,
             type: 'string'
+        },
+        'l': {
+            alias: 'instalod-path',
+            default: 'C:\\Apps\\InstaLODPipeline_2020b\\InstaLODCmd.exe',
+            description: 'Path to InstaLOD Pipeline executable',
+            global: true,
+            type: 'string'
+
         }
     })
     .command('pipeline', 'Execute the input pipeline JSON file.')
@@ -109,6 +117,7 @@ var argv = yargs
     .command('smoothB3dm', 'Smooth a b3dm using blender')
     .command('bakeB3dm', 'Bake a b3dm using blender')
     .command('dracoCompressGlb', 'Pass the input glb through gltf-pipeline to draco compress it')
+    .command('instaLODB3dm', 'Run an instaLOD profile on the tile')
     .command('optimizeI3dm', 'Pass the input i3dm through gltf-pipeline. To pass options to gltf-pipeline, place them after --options. (--options -h for gltf-pipeline help)', {
         'options': {
             description: 'All arguments after this flag will be passed to gltf-pipeline as command line options.'
@@ -142,6 +151,7 @@ var command = argv._[0];
 var input = defaultValue(argv.i, argv._[1]);
 var output = defaultValue(argv.o, argv._[2]);
 var blenderPath = argv.b;
+var instaLODPath = argv.l;
 var force = argv.f;
 
 if (!defined(input)) {
@@ -187,6 +197,8 @@ function runCommand(command, input, output, force, argv) {
         return smoothB3dm(input, output, force, blenderPath, optionArgs);
     } else if (command === 'bakeB3dm') {
         return bakeB3dm(input, output, force, blenderPath, optionArgs);
+    } else if (command === 'instaLODB3dm') {
+        return instaLODB3dm(input, output, force, blenderPath, instaLODPath, optionArgs);
     } else if (command === 'dracoCompressGlb') {
         return dracoCompressGlb(input, output, force, optionArgs);
     } else if (command === 'optimizeI3dm') {
@@ -574,7 +586,7 @@ function smoothB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
                   console.log("Error", err)
                   reject(err)
                 } else {
-                  exec(`${blenderPath} -b --python ${path.resolve('.','bpy_smooth_tiles.py')} -- ${blenderTmp}/tile-${uid}.glb ${blenderTmp}/tile-smooth-${uid}.glb`, (error, stdout, stderr) => {
+                  exec(`"${blenderPath}" -b --python ${path.resolve('.','bpy_smooth_tiles.py')} -- ${blenderTmp}/tile-${uid}.glb ${blenderTmp}/tile-smooth-${uid}.glb`, (error, stdout, stderr) => {
                     if (error) {
                       console.log("Error", error);
                       reject(error);
@@ -616,7 +628,6 @@ function bakeB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
     var options = {decodeWebP: true};
     var uid = uuidv4();
 
-
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
     var gzipped;
     var b3dm;
@@ -643,7 +654,7 @@ function bakeB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
                   console.log("Error", err)
                   reject(err)
                 } else {
-                  exec(`${blenderPath} -b --python ${path.resolve('.','bpy_bake_tile.py')} -- ${blenderTmp}/tile-${uid}.glb ${blenderTmp}/tile-baked-${uid}.glb`, (error, stdout, stderr) => {
+                  exec(`"${blenderPath}" -b --python ${path.resolve('.','bpy_bake_tile.py')} -- ${blenderTmp}/tile-${uid}.glb ${blenderTmp}/tile-baked-${uid}.glb`, (error, stdout, stderr) => {
                     if (error) {
                       console.log("Error", error);
                       reject(error);
@@ -680,6 +691,122 @@ function bakeB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
            console.log("ERROR", error);
         });
 }
+
+
+function instaLODB3dm(inputPath, outputPath, force, blenderPath, instaLODPath, optionArgs) {
+    var options = {decodeWebP: true};
+    var uid = uuidv4();
+    var blenderTmp = path.resolve('.', 'tmp');
+
+
+    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
+    var instaLODProfile = optionArgs[0];
+    var gzipped;
+    var b3dm;
+    return checkFileOverwritable(outputPath, force)
+        .then(function() {
+            return fsExtra.readFile(inputPath);
+        })
+        .then(function(fileBuffer) {
+            gzipped = isGzipped(fileBuffer);
+            if (isGzipped(fileBuffer)) {
+                return zlibGunzip(fileBuffer);
+            }
+            return fileBuffer;
+        })
+        .then(function(fileBuffer) {
+            b3dm = extractB3dm(fileBuffer);
+            return GltfPipeline.processGlb(b3dm.glb, options);
+        })
+        .then(function({glb}) {
+          const blenderTmp = path.resolve('.', 'tmp');
+          return new Promise((resolve, reject) => {
+            fs.writeFile(`${blenderTmp}/tile-${uid}.glb`, glb, (err) => {
+                if (err) {
+                  console.log("Error", err)
+                  reject(err)
+                } else {
+                    resolve();
+                }
+            })
+           })
+        })
+        .then(() => {
+            return new Promise((resolve, reject) => {
+                exec(`"${blenderPath}" -b --python ${path.resolve('.','bpy_tile_to_fbx.py')} -- ${blenderTmp}/tile-${uid}.glb ${blenderTmp}/tile-${uid}.fbx`, (error, stdout, stderr) => {
+                    if (error) {
+                        console.log("Error", error);
+                        reject(error);
+                    }
+                    else {
+                        console.log(stdout);
+                        resolve();
+                    }
+                })
+            })         
+        })
+        .then(() => {
+            return new Promise((resolve, reject) => {
+                exec(`"${instaLODPath}" -hostapp Blender -profile ${instaLODProfile} -file "${blenderTmp}/tile-${uid}.fbx" "${blenderTmp}/tile-baked-${uid}.fbx" Default`, (error, stdout, stderr) => {
+                    if (error.code != 1) {
+                        console.log("Error", error);
+                        reject(error);
+                    }
+                    else {
+                        console.log(stdout);
+                        resolve();
+                    }
+                })
+            })         
+        })
+        .then(() => {
+            return new Promise((resolve, reject) => {
+                exec(`"${blenderPath}" -b --python ${path.resolve('.','bpy_fbx_to_glb.py')} -- ${blenderTmp}/tile-baked-${uid}.fbx ${blenderTmp}/tile-baked-${uid}.glb`, (error, stdout, stderr) => {
+                    if (error) {
+                        console.log("Error", error);
+                        reject(error);
+                    }
+                    else {
+                        console.log(stdout);
+                        resolve();
+                    }
+                })
+            })         
+        })
+        .then(() => {
+            return new Promise((resolve, reject) => {
+                fs.readFile(`${blenderTmp}/tile-baked-${uid}.glb`, (err, data) => {
+                    if (err) {
+                        console.log("Error", err);
+                        reject(err);
+                    }
+                    rimraf.sync(`${blenderTmp}/tile-${uid}.fbm`)
+                    fs.unlinkSync(`${blenderTmp}/tile-${uid}.fbx`)
+                    fs.unlinkSync(`${blenderTmp}/tile-${uid}.glb`)
+                    fs.unlinkSync(`${blenderTmp}/tile-baked-${uid}.glb`)
+                    fs.unlinkSync(`${blenderTmp}/tile-baked-${uid}.fbx`)
+                    resolve(data)
+                });
+            })            
+        })
+        .then(function(glb) {
+            var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
+            /*
+             * Viewer currently does not support Gzip
+            if (gzipped) {
+                return zlibGzip(b3dmBuffer);
+            }*/
+            return b3dmBuffer;
+        })
+        .then(function(buffer) {
+            return fsExtra.outputFile(outputPath, buffer);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
+        });
+}
+
+
 function dracoCompressGlb(inputPath, outputPath, force, optionArgs) {
     var options = {dracoOptions: true, decodeWebP: true};
     if (optionArgs.includes('--basis')) {
