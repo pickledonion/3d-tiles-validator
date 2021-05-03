@@ -281,7 +281,7 @@
     "PreserveInputMesh" : false,
     "UsePreviousOutputAsInput" : true
   },
-  "Name" : "Default",
+  "Name" : "Tiles2048",
   "Operation" : "MeshOperation",
   "SmoothingGroupImport" : "None",
   "Version" : "4.1"
