@@ -747,7 +747,7 @@ function instaLODB3dm(inputPath, outputPath, force, blenderPath, instaLODPath, o
         })
         .then(() => {
             return new Promise((resolve, reject) => {
-                exec(`"${instaLODPath}" -hostapp Blender -profile ${instaLODProfile} -file "${blenderTmp}/tile-${uid}.fbx" "${blenderTmp}/tile-baked-${uid}.fbx" Default`, (error, stdout, stderr) => {
+                exec(`"${instaLODPath}" -profile ${instaLODProfile} -file "${blenderTmp}/tile-${uid}.fbx" "${blenderTmp}/tile-baked-${uid}.fbx" Default`, (error, stdout, stderr) => {
                     if (error.code != 1) {
                         console.log("Error", error);
                         reject(error);
