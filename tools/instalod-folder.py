@@ -6,6 +6,7 @@ import os
 import subprocess
 
 parser = argparse.ArgumentParser(description='InstaLOD my Tiles++')
+parser.add_argument('profile', metavar='json file', help='File name of the InstaLOD profile')
 parser.add_argument('input_folder', metavar='input-folder', help='A folder containing .b3dm files')
 parser.add_argument('output_folder', metavar='output-folder', help='A folder where the comprssed tiles will be written')
 parser.add_argument('--concurrency', metavar='N', type=int, default=1, help='Concurrency level')
@@ -16,13 +17,8 @@ parser.add_argument('--instalod-path', metavar='path', type=str, default='C:\\Ap
 args = parser.parse_args()
 
 def process_file(data):
-    input_file, output_file, blender_path, instalod_path = data
+    input_file, output_file, profile, blender_path, instalod_path = data
     
-    if 'lod0' in input_file:
-        instlod_profile = 'instalod_2048.json'
-    else:
-        instlod_profile = 'instalod_512.json'
-
     result = subprocess.run(
                 [
                     'node',
@@ -38,7 +34,7 @@ def process_file(data):
                     '-o', 
                     output_file,
                     '--options' ,
-                    instlod_profile
+                    profile
                
                 ],
                 stdout=subprocess.PIPE
@@ -56,7 +52,7 @@ if __name__ == '__main__':
         if file.endswith(".b3dm"):
             full_path = os.path.join(args.input_folder, file)
             output_path = os.path.join(args.output_folder, file)
-            work.append((full_path, output_path, args.blender_path, args.instalod_path))
+            work.append((full_path, output_path, args.profile, args.blender_path, args.instalod_path))
 
     print("Running pool with {} workers".format(args.concurrency))
     pool = Pool(args.concurrency)
