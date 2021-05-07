@@ -44,7 +44,7 @@ def process_file(data):
         print("FAILED: {}".format(input_file))
         print(result.stdout)
     else:
-        print('{} ({})'.format(output_file,instlod_profile))
+        print('{} ({})'.format(output_file,profile))
 
 if __name__ == '__main__':
     work = []
