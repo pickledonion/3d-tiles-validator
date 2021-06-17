@@ -436,7 +436,10 @@ function readCmptWriteGlb(inputPath, outputPath, force) {
 }
 
 function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
-    var options = GltfPipeline.parseArguments(optionArgs);
+    var options = {};
+    if (optionArgs.includes('--basis')) {
+      options.encodeBasis = true;
+    }
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
     var gzipped;
     var b3dm;
@@ -456,8 +459,8 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
 
             return GltfPipeline.processGlb(b3dm.glb, options);
         })
-        .then(function(glbBuffer) {
-            var b3dmBuffer = glbToB3dm(glbBuffer, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
+        .then(function({glb}) {
+            var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
             if (gzipped) {
                 return zlibGzip(b3dmBuffer);
             }
@@ -465,6 +468,9 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
         })
         .then(function(buffer) {
             return fsExtra.outputFile(outputPath, buffer);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
         });
 }
 
