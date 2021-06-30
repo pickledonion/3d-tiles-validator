@@ -9,8 +9,8 @@ parser = argparse.ArgumentParser(description='Draco my Tiles++')
 parser.add_argument('input_folder', metavar='input-folder', help='A folder containing .b3dm files')
 parser.add_argument('output_folder', metavar='output-folder', help='A folder where the comprssed tiles will be written')
 parser.add_argument('--concurrency', metavar='N', type=int, default=10, help='Concurrency level')
-parser.add_argument('--basis', action='store_true' , help='Encode WebP images to .basis')
-parser.add_argument('--jpeg-quality', metavar='N', type=int, default=100, help='JPEG quality when encoding WebP to JPEG')
+parser.add_argument('--basis', action='store_true' , help='Encode images to .basis')
+parser.add_argument('--jpeg-quality', metavar='N', type=int, default=100, help='JPEG quality when encoding to JPEG')
     
 args = parser.parse_args()
 
@@ -21,7 +21,7 @@ def process_file(data):
                     'node',
                     'bin/3d-tiles-tools.js',
                     '-f', 
-                    'optimizeB3dm',
+                    'compressB3dm',
                     '-i', 
                     input_file,
                     '-o', 

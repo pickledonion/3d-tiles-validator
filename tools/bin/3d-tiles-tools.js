@@ -554,7 +554,7 @@ function blenderB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
     var gzipped;
     var b3dm;
 
-    var blenderScript = optionArgs;
+    var blenderScript = optionArgs[0];
 
     return checkFileOverwritable(outputPath, force)
         .then(function() {

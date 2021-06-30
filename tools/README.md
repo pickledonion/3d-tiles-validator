@@ -1,17 +1,63 @@
 # 3D Tiles Tools
 
- ❗️ **3D Tiles Tools is not actively maintained. For converting source data to 3D Tiles check out [Cesium ion](https://cesium.com/ion).**  ❗️
+ **This is a fork (to an unmaintained repo) that adds KTX2/Basis universal compression and blender script processing to tile tools**
 
 Node.js library and command-line tools for processing and converting 3D Tiles tilesets.
 
 ## Instructions
 
-Clone this repo and install [Node.js](http://nodejs.org/).  From the root directory of this repo, run:
+Clone this repo and cd to the tools folder
+```
+cd tools
+``` 
+Install [Node.js](http://nodejs.org/).  From the root directory of this repo, run:
 ```
 npm install
 ```
 
-## Command line tools
+## NEW Command line tools 
+
+### compressB3dm
+
+Apply draco compression and optionally basis universal or jpeg texture compression. It will also decode .webp images to other formats.
+
+**The command also undos any gzip compression on the tiles.**
+
+**WebP decoding requires the dwebp binary ([Windows](https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.2.0-windows-x64.zip), [Linux](https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.2.0-linux-x86-64.tar.gz)) in the executable path**
+
+With basis:
+
+**Requires the [basisu v1.15](https://github.com/BinomialLLC/basis_universal/releases/tag/v1.15_rel2) binary in the executable PATH**.
+
+```
+node bin/3d-tiles-tools.js compressB3dm -i tile.b3dm -o tile_out.b3dm --options --basis
+```
+With JPEG, quality 80%:
+
+```
+node bin/3d-tiles-tools.js compressB3dm -i tile.b3dm -o tile_out.b3dm --options --jpeg-quality=80
+```
+
+### NEW: Compress concurrently. 
+
+The following python script compresses an entire folder to draco and basis in 10 concurrent processes:
+```
+python compress-folder.py --concurrency 10 --basis /input/folder /output/folder/
+```
+
+
+### Blender B3dm
+Run a blender script on the tile.
+
+```
+node bin/3d-tiles-tools.js blenderB3dm -b /path/to/blender -i tile.b3dm -o tile_blended.b3dm --options blender_script.py
+```
+Examples of blender scripts:
+
+ * [bpy_bake_tile](./bpy_bake_tile.py): UV Unwrap and re-bake to a 2K texture.
+ * [bpy_smooth_tiles](./bpy_smooth_tiles.py): Apply smoothing to the tile.
+
+## Original Command line tools  
 
 ### gzip
 
