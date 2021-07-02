@@ -44,6 +44,13 @@ The following python script compresses an entire folder to draco and basis in 10
 ```
 python compress-folder.py --concurrency 10 --basis /input/folder /output/folder/
 ```
+### optimizeB3dm
+
+Does the same as `compressB3dm` only without DRACO. Can decode WebP and gzip, and compress .basis.
+
+```
+node bin/3d-tiles-tools.js optimizeB3dm -i tile.b3dm -o tile_out.b3dm --options --basis
+```
 
 
 ### Blender B3dm
