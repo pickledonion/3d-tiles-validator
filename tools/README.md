@@ -59,7 +59,6 @@ Does the same as `compressB3dm` only without DRACO. Can decode WebP and gzip, an
 node bin/3d-tiles-tools.js optimizeB3dm -i tile.b3dm -o tile_out.b3dm --options --basis
 ```
 
-
 ### Blender B3dm
 Run a blender script on the tile.
 
@@ -70,6 +69,14 @@ Examples of blender scripts:
 
  * [bpy_bake_tile](./bpy_bake_tile.py): UV Unwrap and re-bake to a 2K texture.
  * [bpy_smooth_tiles](./bpy_smooth_tiles.py): Apply smoothing to the tile.
+
+### compressGlb
+
+Same command arguments as `compressB3dm`, but to a `glb` file. For example with basis compression:
+
+```
+node bin/3d-tiles-tools.js compressGlb -i model.glb -o model_out.glb --options --basis
+```
 
 ## Original Command line tools  
 
