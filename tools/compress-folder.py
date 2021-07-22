@@ -11,6 +11,7 @@ parser.add_argument('output_folder', metavar='output-folder', help='A folder whe
 parser.add_argument('--concurrency', metavar='N', type=int, default=10, help='Concurrency level')
 parser.add_argument('--basis', action='store_true' , help='Encode images to .basis')
 parser.add_argument('--jpeg-quality', metavar='N', type=int, default=100, help='JPEG quality when encoding to JPEG')
+parser.add_argument('--basis-quality', metavar='N', type=int, default=None, help='Basis quality when encoding to basis')
     
 args = parser.parse_args()
 
@@ -28,6 +29,7 @@ def process_file(data):
                     output_file,
                     '--options' ,
                     '--jpeg-quality={}'.format(args.jpeg_quality) if args.jpeg_quality else '',
+                    '--basis-quality={}'.format(args.basis_quality) if args.basis_quality else '',
                     '--basis' if args.basis else ''
                 ],
                 stdout=subprocess.PIPE

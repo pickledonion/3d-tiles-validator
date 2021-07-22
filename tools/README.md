@@ -32,7 +32,14 @@ With basis:
 ```
 node bin/3d-tiles-tools.js compressB3dm -i tile.b3dm -o tile_out.b3dm --options --basis
 ```
-With JPEG, quality 80%:
+
+You can also set the basis compression quality (`1-255`, a higher value results in better quality and a larger file size.  Default is `128`):
+
+```
+node bin/3d-tiles-tools.js compressB3dm -i tile.b3dm -o tile_out.b3dm --options --basis --basis-quality=255
+```
+
+Or encode with JPEG, quality 80%:
 
 ```
 node bin/3d-tiles-tools.js compressB3dm -i tile.b3dm -o tile_out.b3dm --options --jpeg-quality=80
@@ -46,7 +53,7 @@ python compress-folder.py --concurrency 10 --basis /input/folder /output/folder/
 ```
 ### optimizeB3dm
 
-Does the same as `compressB3dm` only without DRACO. Can decode WebP and gzip, and compress .basis.
+Does the same as `compressB3dm` only without DRACO. Can decode WebP and gzip, and encode .basis.
 
 ```
 node bin/3d-tiles-tools.js optimizeB3dm -i tile.b3dm -o tile_out.b3dm --options --basis

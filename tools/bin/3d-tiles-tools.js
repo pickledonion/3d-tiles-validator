@@ -105,6 +105,11 @@ var argv = yargs
             description: 'All arguments after this flag will be passed to gltf-pipeline as command line options.'
         }
     })
+    .command('optimizeGlb', 'Pass the input glb through gltf-pipeline. To pass options to gltf-pipeline, place them after --options. (--options -h for gltf-pipeline help)', {
+        'options': {
+            description: 'All arguments after this flag will be passed to gltf-pipeline as command line options.'
+        }
+    })
     .command('compressB3dm', 'Pass the input b3dm through gltf-pipeline to draco compress it')
     .command('blenderB3dm', 'Process a b3dm using blender')
     .command('compressGlb', 'Pass the input glb through gltf-pipeline to draco compress it')
@@ -180,6 +185,8 @@ function runCommand(command, input, output, force, argv) {
         return readGlbWriteI3dm(input, output, force);
     } else if (command === 'optimizeB3dm') {
         return readAndOptimizeB3dm(input, output, force, optionArgs);
+    } else if (command === 'optimizeGlb') {
+        return readAndOptimizeGlb(input, output, force, optionArgs);
     } else if (command === 'compressB3dm') {
         return compressB3dm(input, output, force, optionArgs);
     } else if (command === 'blenderB3dm') {
@@ -232,6 +239,23 @@ function readFile(file) {
 
 function logCallback(message) {
     console.log(message);
+}
+
+function parseOptionsArgs(optionArgs) {
+  var options = {};
+  if (optionArgs.includes('--basis')) {
+    options.encodeBasis = true;
+  }
+  var qualityArg = optionArgs.findIndex(str => str.includes('--jpeg-quality'))
+  if (qualityArg != -1) {
+    options.jpegCompressionRatio = parseInt(optionArgs[qualityArg].split('=')[1])
+  }
+  var basisQualityArg = optionArgs.findIndex(str => str.includes('--basis-quality'))
+  if (basisQualityArg != -1) {
+    options.basisQuality = parseInt(optionArgs[basisQualityArg].split('=')[1])
+  }
+
+  return options;
 }
 
 function processPipeline(inputFile) {
@@ -421,10 +445,9 @@ function readCmptWriteGlb(inputPath, outputPath, force) {
 }
 
 function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
-    var options = {};
-    if (optionArgs.includes('--basis')) {
-      options.encodeBasis = true;
-    }
+   
+    var options = parseOptionsArgs(optionArgs);
+
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
     var gzipped;
     var b3dm;
@@ -460,15 +483,34 @@ function readAndOptimizeB3dm(inputPath, outputPath, force, optionArgs) {
         });
 }
 
+function readAndOptimizeGlb(inputPath, outputPath, force, optionArgs) {
+    var options = parseOptionsArgs(optionArgs);
+
+    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.glb');
+    return checkFileOverwritable(outputPath, force)
+        .then(function() {
+            return fsExtra.readFile(inputPath);
+        })
+        .then(function(fileBuffer) {
+            b3dm = extractB3dm(fileBuffer);
+
+            return GltfPipeline.processGlb(fileBuffer, options);
+        })
+        .then(function(buffer) {
+            return fsExtra.outputFile(outputPath, buffer);
+        })
+        .catch(function(error) {
+           console.log("ERROR", error);
+        });
+}
+
 function compressB3dm(inputPath, outputPath, force, optionArgs) {
-    var options = {dracoOptions: true, decodeWebP: true};
-    if (optionArgs.includes('--basis')) {
-      options.encodeBasis = true;
-    }
-    var qualityArg = optionArgs.findIndex(str => str.includes('--jpeg-quality'))
-    if (qualityArg != -1) {
-      options.jpegCompressionRatio = parseInt(optionArgs[qualityArg].split('=')[1])
-    }
+    var options = {
+      dracoOptions: true, 
+      decodeWebP: true,
+      ...parseOptionsArgs(optionArgs)
+    };
+
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
     var gzipped;
     var b3dm;
@@ -504,49 +546,6 @@ function compressB3dm(inputPath, outputPath, force, optionArgs) {
         });
 }
 
-function compressB3dm(inputPath, outputPath, force, optionArgs) {
-    var options = {dracoOptions: true, decodeWebP: true};
-    if (optionArgs.includes('--basis')) {
-      options.encodeBasis = true;
-    }
-    var qualityArg = optionArgs.findIndex(str => str.includes('--jpeg-quality'))
-    if (qualityArg != -1) {
-      options.jpegCompressionRatio = parseInt(optionArgs[qualityArg].split('=')[1])
-    }
-    outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
-    var gzipped;
-    var b3dm;
-    return checkFileOverwritable(outputPath, force)
-        .then(function() {
-            return fsExtra.readFile(inputPath);
-        })
-        .then(function(fileBuffer) {
-            gzipped = isGzipped(fileBuffer);
-            if (isGzipped(fileBuffer)) {
-                return zlibGunzip(fileBuffer);
-            }
-            return fileBuffer;
-        })
-        .then(function(fileBuffer) {
-            b3dm = extractB3dm(fileBuffer);
-            return GltfPipeline.processGlb(b3dm.glb, options);
-        })
-        .then(function({glb}) {
-            var b3dmBuffer = glbToB3dm(glb, b3dm.featureTable.json, b3dm.featureTable.binary, b3dm.batchTable.json, b3dm.batchTable.binary);
-            /*
-             * Viewer currently does not support Gzip
-            if (gzipped) {
-                return zlibGzip(b3dmBuffer);
-            }*/
-            return b3dmBuffer;
-        })
-        .then(function(buffer) {
-            return fsExtra.outputFile(outputPath, buffer);
-        })
-        .catch(function(error) {
-           console.log("ERROR", error);
-        });
-}
 function blenderB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
     var options = {decodeWebP: true};
     var uid = uuidv4();
@@ -618,14 +617,12 @@ function blenderB3dm(inputPath, outputPath, force, blenderPath, optionArgs) {
         });
 }
 function compressGlb(inputPath, outputPath, force, optionArgs) {
-    var options = {dracoOptions: true, decodeWebP: true};
-    if (optionArgs.includes('--basis')) {
-      options.encodeBasis = true;
-    }
-    var qualityArg = optionArgs.findIndex(str => str.includes('--jpeg-quality'))
-    if (qualityArg != -1) {
-      options.jpegCompressionRatio = parseInt(optionArgs[qualityArg].split('=')[1])
-    }
+    var options = {
+      dracoOptions: true, 
+      decodeWebP: true,
+      ...parseOptionsArgs(optionArgs)
+    };
+
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.glb');
     var gzipped;
     var b3dm;
