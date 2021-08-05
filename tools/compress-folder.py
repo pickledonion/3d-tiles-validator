@@ -4,6 +4,7 @@ from multiprocessing import Pool
 import argparse
 import os
 import subprocess
+import sys
 
 parser = argparse.ArgumentParser(description='Draco my Tiles++')
 parser.add_argument('input_folder', metavar='input-folder', help='A folder containing .b3dm files')
@@ -12,6 +13,7 @@ parser.add_argument('--concurrency', metavar='N', type=int, default=10, help='Co
 parser.add_argument('--basis', action='store_true' , help='Encode images to .basis')
 parser.add_argument('--jpeg-quality', metavar='N', type=int, default=100, help='JPEG quality when encoding to JPEG')
 parser.add_argument('--basis-quality', metavar='N', type=int, default=None, help='Basis quality when encoding to basis')
+parser.add_argument('-v', '--verbose', action='store_true' , help='Verbose output for errors')
     
 args = parser.parse_args()
 
@@ -37,6 +39,8 @@ def process_file(data):
 
     if "ERROR" in str(result.stdout):
         print("FAILED: {}".format(input_file))
+        if args.verbose:
+            print(result.stdout.decode())
     else:
         print(output_file)
 

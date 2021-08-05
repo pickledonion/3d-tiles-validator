@@ -51,6 +51,8 @@ The following python script compresses an entire folder to draco and basis in 10
 ```
 python compress-folder.py --concurrency 10 --basis /input/folder /output/folder/
 ```
+**HINT**: If you can _FAILED_ messages when running the script, use the `-v` option to display the full trace of the error.
+
 ### optimizeB3dm
 
 Does the same as `compressB3dm` only without DRACO. Can decode WebP and gzip, and encode .basis.
