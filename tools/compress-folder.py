@@ -11,7 +11,7 @@ parser.add_argument('input_folder', metavar='input-folder', help='A folder conta
 parser.add_argument('output_folder', metavar='output-folder', help='A folder where the comprssed tiles will be written')
 parser.add_argument('--concurrency', metavar='N', type=int, default=10, help='Concurrency level')
 parser.add_argument('--basis', action='store_true' , help='Encode images to .basis')
-parser.add_argument('--jpeg-quality', metavar='N', type=int, default=100, help='JPEG quality when encoding to JPEG')
+parser.add_argument('--jpeg-quality', metavar='N', type=int, default=None, help='JPEG quality when encoding to JPEG')
 parser.add_argument('--basis-quality', metavar='N', type=int, default=None, help='Basis quality when encoding to basis')
 parser.add_argument('-v', '--verbose', action='store_true' , help='Verbose output for errors')
     
@@ -39,10 +39,11 @@ def process_file(data):
 
     if "ERROR" in str(result.stdout):
         print("FAILED: {}".format(input_file))
-        if args.verbose:
-            print(result.stdout.decode())
     else:
         print(output_file)
+
+    if args.verbose:
+        print(result.stdout.decode())
 
 if __name__ == '__main__':
     work = []

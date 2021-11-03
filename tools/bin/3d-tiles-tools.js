@@ -505,10 +505,12 @@ function readAndOptimizeGlb(inputPath, outputPath, force, optionArgs) {
 }
 
 function compressB3dm(inputPath, outputPath, force, optionArgs) {
+    var parsedArgs = parseOptionsArgs(optionArgs);
+
     var options = {
       dracoOptions: true, 
-      decodeWebP: true,
-      ...parseOptionsArgs(optionArgs)
+      decodeWebP: !!parsedArgs.jpegCompressionRatio || parsedArgs.encodeBasis,
+      ...parsedArgs
     };
 
     outputPath = defaultValue(outputPath, inputPath.slice(0, inputPath.length - 5) + '-optimized.b3dm');
