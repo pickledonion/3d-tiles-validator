@@ -13,6 +13,7 @@ parser.add_argument('--concurrency', metavar='N', type=int, default=10, help='Co
 parser.add_argument('--basis', action='store_true' , help='Encode images to .basis')
 parser.add_argument('--jpeg-quality', metavar='N', type=int, default=None, help='JPEG quality when encoding to JPEG')
 parser.add_argument('--basis-quality', metavar='N', type=int, default=None, help='Basis quality when encoding to basis')
+parser.add_argument('--basis-linear', action='store_true' , help='Set .basis images to a linear colorspace')
 parser.add_argument('-v', '--verbose', action='store_true' , help='Verbose output for errors')
     
 args = parser.parse_args()
@@ -32,6 +33,7 @@ def process_file(data):
                     '--options' ,
                     '--jpeg-quality={}'.format(args.jpeg_quality) if args.jpeg_quality else '',
                     '--basis-quality={}'.format(args.basis_quality) if args.basis_quality else '',
+                    '--basis-linear' if args.basis_linear else '',
                     '--basis' if args.basis else ''
                 ],
                 stdout=subprocess.PIPE

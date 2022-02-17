@@ -255,6 +255,13 @@ function parseOptionsArgs(optionArgs) {
     options.basisQuality = parseInt(optionArgs[basisQualityArg].split('=')[1])
   }
 
+  var basisLinearArg = optionArgs.findIndex(str => str.includes('--basis-linear'))
+  if (basisLinearArg != -1) {
+    options.basisLinear = true;
+  } else {
+    options.basisLinear = false;
+  }
+
   return options;
 }
 
